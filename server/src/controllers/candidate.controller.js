@@ -2,6 +2,12 @@ const resumeQueue = require("../queues/resume.queue");
 const Application = require("../models/Application");
 
 exports.applyForJob = async (req, res) => {
+  if (req.user.role !== "candidate") {
+    return res
+      .status(403)
+      .json({ message: "Only candidates can apply for jobs" });
+  }
+
   const { jobId } = req.body;
 
   if (!jobId) {
@@ -28,16 +34,36 @@ exports.applyForJob = async (req, res) => {
   });
 };
 
-
 exports.uploadResume = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "Resume file is required" });
   }
 
-  await resumeQueue.add({
-    userId: req.user.id,
-    filePath: req.file.path
-  });
+  const application = await Application.findOne({
+    candidateId: req.user.id
+  }).sort({ createdAt: -1 });
 
-  res.json({ message: "Resume upload queued" });
+  if (!application) {
+    return res.status(400).json({
+      message: "Apply for a job before uploading resume"
+    });
+  }
+
+  application.resumePath = req.file.path;
+  await application.save();
+
+  res.json({
+    message: "Resume uploaded successfully",
+    resumePath: application.resumePath
+  });
+};
+
+exports.getMyApplications = async (req, res) => {
+  const applications = await Application.find({
+    candidateId: req.user.id
+  })
+    .populate("jobId", "title sector")
+    .sort({ createdAt: -1 });
+
+  res.json(applications);
 };
