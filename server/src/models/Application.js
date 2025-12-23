@@ -14,6 +14,9 @@ const applicationSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    resumePath: {
+      type: String   
+    },
     status: {
       type: String,
       enum: ["applied", "shortlisted", "rejected"],
