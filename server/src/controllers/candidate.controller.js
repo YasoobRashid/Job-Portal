@@ -1,22 +1,56 @@
-const resumeQueue = require("../queues/resume.queue");
 const Application = require("../models/Application");
+const User = require("../models/User");
+const resumeQueue = require("../queues/resume.queue");
 
-exports.applyForJob = async (req, res) => {
-  if (req.user.role !== "candidate") {
-    return res
-      .status(403)
-      .json({ message: "Only candidates can apply for jobs" });
+exports.uploadResume = async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: "Resume file is required" });
   }
 
+  const user = await User.findById(req.user.id);
+
+  if (!user || user.role !== "candidate") {
+    return res.status(403).json({ message: "Only candidates can upload resume" });
+  }
+
+  user.resumePath = req.file.path;
+  await user.save();
+
+  await resumeQueue.add({
+    userId: user._id,
+    email: user.email,
+    resumePath: user.resumePath
+  });
+
+  res.json({
+    message: "Resume uploaded successfully",
+    resumePath: user.resumePath
+  });
+};
+
+
+exports.applyForJob = async (req, res) => {
   const { jobId } = req.body;
 
   if (!jobId) {
     return res.status(400).json({ message: "jobId is required" });
   }
 
+  const user = await User.findById(req.user.id);
+
+  if (!user || user.role !== "candidate") {
+    return res.status(403).json({ message: "Only candidates can apply" });
+  }
+
+  if (!user.resumePath) {
+    return res.status(400).json({
+      message: "Upload resume before applying"
+    });
+  }
+
   const alreadyApplied = await Application.findOne({
     jobId,
-    candidateId: req.user.id
+    candidateId: user._id
   });
 
   if (alreadyApplied) {
@@ -25,7 +59,8 @@ exports.applyForJob = async (req, res) => {
 
   const application = await Application.create({
     jobId,
-    candidateId: req.user.id
+    candidateId: user._id,
+    resumePath: user.resumePath   
   });
 
   res.status(201).json({
@@ -34,29 +69,7 @@ exports.applyForJob = async (req, res) => {
   });
 };
 
-exports.uploadResume = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "Resume file is required" });
-  }
 
-  const application = await Application.findOne({
-    candidateId: req.user.id
-  }).sort({ createdAt: -1 });
-
-  if (!application) {
-    return res.status(400).json({
-      message: "Apply for a job before uploading resume"
-    });
-  }
-
-  application.resumePath = req.file.path;
-  await application.save();
-
-  res.json({
-    message: "Resume uploaded successfully",
-    resumePath: application.resumePath
-  });
-};
 
 exports.getMyApplications = async (req, res) => {
   const applications = await Application.find({

@@ -6,8 +6,10 @@ const upload = require("../utils/fileUpload");
 
 const {
   uploadResume,
-  applyForJob
+  applyForJob,
+  getMyApplications   
 } = require("../controllers/candidate.controller");
+
 
 router.post(
   "/resume",
@@ -16,10 +18,17 @@ router.post(
   uploadResume
 );
 
+
 router.post(
   "/apply",
   auth,
   applyForJob
+);
+
+router.get(
+  "/applications",
+  auth,
+  getMyApplications
 );
 
 module.exports = router;
