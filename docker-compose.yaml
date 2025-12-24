@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./server
+    container_name: job-portal-server
+    ports:
+      - "4000:4000"
+    
+    env_file:
+      - ./server/.env
+    
+    environment:
+      - PORT=4000
+      - MONGO_URI=mongodb://mongo:27017/job-portal
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+    depends_on:
+      - mongo
+      - redis
+    volumes:
+      - ./server/uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    container_name: job-portal-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
+
+  mongo:
+    image: mongo:6
+    container_name: job-portal-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: job-portal-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo_data:
